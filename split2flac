@@ -238,7 +238,7 @@ METAFLAC="metaflac --no-utf8-convert"
 VORBISCOMMENT="vorbiscomment -R -a"
 command -v mid3v2 >/dev/null && ID3TAG="mid3v2" || ID3TAG="id3tag -2"
 MP4TAGS="mp4tags"
-GETTAG="cueprint -n 1 -t"
+GETTAG="cueprint -n 1 -i cue -t"
 VALIDATE="sed s/[^][[:space:][:alnum:]&_#,.'\"\(\)!-]//g"
 
 # check & print output format
@@ -286,7 +286,7 @@ update_pattern () {
 
 # splits a file
 split_file () {
-	TMPCUE="${HOME}/.split2flac_XXXXX.cue"
+	TMPCUE=""
 	FILE="$1"
 
 	if [ ! -r "${FILE}" ]; then
@@ -321,10 +321,9 @@ split_file () {
 
 				if [ -n "${CUESHEET}" ]; then
 					$msg "${cP}Found internal cue sheet$cZ\n"
-					TMPCUE=$(mktemp "${TMPCUE}")
+					TMPCUE=$(mktemp -t "split2flac")
 					CUE="${TMPCUE}"
 					echo "${CUESHEET}" > "${CUE}"
-					TMPCUE="${HOME}/.split2flac_XXXXX.cue"
 
 					if [ $? -ne 0 ]; then
 						emsg "Unable to save internal cue sheet\n"
@@ -377,7 +376,7 @@ split_file () {
 	fi
 
 	# save converted cue sheet
-	TMPCUE=$(mktemp "${TMPCUE}")
+	TMPCUE=$(mktemp -t "split2flac")
 	CUE="${TMPCUE}"
 	echo "${CUESHEET}" > "${CUE}"
 
@@ -434,7 +433,7 @@ split_file () {
 
 	# some cue sheets may have non-audio tracks
 	# we can check the difference between what cuebreakpoints and cueprint gives us
-	BREAKPOINTS_NUM=$(($(cuebreakpoints "${CUE}" 2>/dev/null | wc -l) + 1))
+	BREAKPOINTS_NUM=$(($(cuebreakpoints -i cue "${CUE}" 2>/dev/null | wc -l) + 1))
 
 	# too bad, we can't fix that in a _right_ way
 	if [ ${BREAKPOINTS_NUM} -lt ${TRACKS_NUM} ]; then
@@ -528,7 +527,7 @@ split_file () {
 
 		# prepare cover image
 		if [ -n "${PIC}" ]; then
-			convert "${PIC}" -resize "${PIC_SIZE}" "${TMPPIC}"
+			magick convert "${PIC}" -resize "${PIC_SIZE}" "${TMPPIC}"
 			if [ $? -eq 0 ]; then
 				PIC="${TMPPIC}"
 			else
@@ -543,12 +542,12 @@ split_file () {
 
 	i=1
 	while [ $i -le ${TRACKS_NUM} ]; do
-		TAG_TITLE=$(cueprint -n $i -t %t "${CUE}" 2>/dev/null)
+		TAG_TITLE=$(cueprint -n $i -i cue -t %t "${CUE}" 2>/dev/null)
 		FILE_TRACK="$(printf %02i $i)"
 		FILE_TITLE=$(echo "${TAG_TITLE}" | ${VALIDATE})
 		f="${OUT}/${FILE_TRACK}.${FORMAT}"
 
-		TAG_PERFORMER=$(cueprint -n $i -t %p "${CUE}" 2>/dev/null)
+		TAG_PERFORMER=$(cueprint -n $i -i cue -t %p "${CUE}" 2>/dev/null)
 
 		if [ -n "${TAG_PERFORMER}" -a "${TAG_PERFORMER}" != "${TAG_ARTIST}" ]; then
 			$msg "$i: $cG${TAG_PERFORMER} - ${TAG_TITLE}$cZ\n"
@@ -575,6 +574,7 @@ split_file () {
 					${METAFLAC} --remove-all-tags \
 						--set-tag="ARTIST=${TAG_PERFORMER}" \
 						--set-tag="ALBUM=${TAG_ALBUM}" \
+						--set-tag="Album Artist=${TAG_ARTIST}" \
 						--set-tag="TITLE=${TAG_TITLE}" \
 						--set-tag="TRACKNUMBER=$i" \
 						--set-tag="TRACKTOTAL=${TRACKS_NUM}" \
@@ -589,6 +589,7 @@ split_file () {
 				mp3)
 					${ID3TAG} --artist="${TAG_PERFORMER}" \
 						--album="${TAG_ALBUM}" \
+                                                --TPE2="${TAG_ARTIST}" \
 						--song="${TAG_TITLE}" \
 						--track="$i/${TRACKS_NUM}" \
 						"${FINAL}" >/dev/null
@@ -602,6 +603,7 @@ split_file () {
 					${VORBISCOMMENT} "${FINAL}" \
 						-t "ARTIST=${TAG_PERFORMER}" \
 						-t "ALBUM=${TAG_ALBUM}" \
+						-t "ALBUMARTIST=${TAG_ARTIST}" \
 						-t "TITLE=${TAG_TITLE}" \
 						-t "TRACKNUMBER=$i" \
 						-t "TRACKTOTAL=${TRACKS_NUM}" >/dev/null
@@ -614,6 +616,7 @@ split_file () {
 				opus)
 					${ID3TAG} --artist="${TAG_PERFORMER}" \
 						--album="${TAG_ALBUM}" \
+                                                --TPE2="${TAG_ARTIST}" \
 						--song="${TAG_TITLE}" \
 						--track="$i/${TRACKS_NUM}" \
 						"${FINAL}" >/dev/null
@@ -627,6 +630,7 @@ split_file () {
 					${MP4TAGS} "${FINAL}" \
 						-a "${TAG_PERFORMER}" \
 						-A "${TAG_ALBUM}" \
+						-R "${TAG_ARTIST}" \
 						-s "${TAG_TITLE}" \
 						-t "$i" \
 						-T "${TRACKS_NUM}" >/dev/null
