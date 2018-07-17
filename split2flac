@@ -48,7 +48,7 @@ REPLAY_GAIN=0
 FORMAT="${0##*split2}"
 DIR="."
 OUTPATTERN="@artist/{@year - }@album/@track - @title.@ext"
-COPYMASKS="[Cc]overs \*.log \*.txt \*.jpg \*.cbr"
+COPYMASKS="[Cc]overs *.log *.txt *.{jpg,JPG} *.cbr"
 COPYFILES=1
 ENCA_ARGS=""
 
@@ -386,19 +386,22 @@ split_file () {
 	fi
 
 	SDIR=$(dirname "${FILE}")
+	OLDDIR=`pwd`
 
 	# search for a front cover image
 	if [ ${NOPIC} -eq 1 ]; then
 		unset PIC
 	elif [ -z "${PIC}" ]; then
 		# try common names
+		cd "${SDIR}"
 		for i in *[Cc]over*.{jpg,JPG,png,PNG} *[Ff]older*.{jpg,JPG,png,PNG} *[Ii]mage*.{jpg,JPG,png,PNG} \
-                  */*[Cc]over*.{jpg,JPG,png,PNG} */*[Ff]older*.{jpg,JPG,png,PNG} */*[Ii]mage*.{jpg,JPG,png,PNG}; do
-			if compgen -G "${SDIR}/$i" > /dev/null ; then
+		  */*[Cc]over*.{jpg,JPG,png,PNG} */*[Ff]older*.{jpg,JPG,png,PNG} */*[Ii]mage*.{jpg,JPG,png,PNG}; do
+			if [ -e "$i" ]; then
 				PIC="${SDIR}/$i"
 				break
 			fi
 		done
+		cd "${OLDDIR}"
 
 		# try to extract internal one
 		if [ -z "${PIC}" ]; then
@@ -590,7 +593,7 @@ split_file () {
 				mp3)
 					${ID3TAG} --artist="${TAG_PERFORMER}" \
 						--album="${TAG_ALBUM}" \
-                                                --TPE2="${TAG_ARTIST}" \
+						--TPE2="${TAG_ARTIST}" \
 						--song="${TAG_TITLE}" \
 						--track="$i/${TRACKS_NUM}" \
 						"${FINAL}" >/dev/null
@@ -617,7 +620,7 @@ split_file () {
 				opus)
 					${ID3TAG} --artist="${TAG_PERFORMER}" \
 						--album="${TAG_ALBUM}" \
-                                                --TPE2="${TAG_ARTIST}" \
+						--TPE2="${TAG_ARTIST}" \
 						--song="${TAG_TITLE}" \
 						--track="$i/${TRACKS_NUM}" \
 						"${FINAL}" >/dev/null
@@ -679,18 +682,17 @@ split_file () {
 
 	# copy files
 	if [ ${COPYFILES} -eq 1 -a "${COPYMASKS}" ]; then
-		old=`pwd`
 		cd "${SDIR}"
 		$msg "\n${cG}Copying files:$cZ\n"
 		eval "for i in ${COPYMASKS}; do \
-				test -r \"\$i\" && \
+				[ -e \"\$i\" ]  && \
 				echo \"   +> \$i\" 2>/dev/null; done"
-		cd "${old}"
 		if [ ${DRY} -ne 1 ]; then
 			eval "for i in ${COPYMASKS}; do \
-					test -r/\"${SDIR}/\$i\" && \
-					cp -r \"${SDIR}/\$i\" \"\${OUT}/\"; done"
+					[ -e \"\$i\" ] && \
+					cp -r \"\$i\" \"\${OUT}/\"; done"
 		fi
+		cd "${OLDDIR}"
 	fi
 
 	rm -f "${TMPPIC}"
