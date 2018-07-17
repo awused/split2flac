@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Copyright (c) 2009-2016 Serge "ftrvxmtrx" Ziryukin
 #
 # Permission is hereby granted, free of charge, to any person obtaining
@@ -392,8 +392,9 @@ split_file () {
 		unset PIC
 	elif [ -z "${PIC}" ]; then
 		# try common names
-		for i in *[Cc]over*.jpg *[Ff]older*.jpg */*[Cc]over*.jpg */*[Ff]older*.jpg; do
-			if [ -r "${SDIR}/$i" ]; then
+		for i in *[Cc]over*.{jpg,JPG,png,PNG} *[Ff]older*.{jpg,JPG,png,PNG} *[Ii]mage*.{jpg,JPG,png,PNG} \
+                  */*[Cc]over*.{jpg,JPG,png,PNG} */*[Ff]older*.{jpg,JPG,png,PNG} */*[Ii]mage*.{jpg,JPG,png,PNG}; do
+			if compgen -G "${SDIR}/$i" > /dev/null ; then
 				PIC="${SDIR}/$i"
 				break
 			fi
